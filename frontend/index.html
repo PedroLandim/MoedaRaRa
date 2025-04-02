@@ -31,15 +31,20 @@
   <img id="gradiente" alt="Barra de desgaste" />
 
   <script>
-    const BACKEND_URL = 'http://localhost:5000'; // ✅ Troque por seu IP ou link do ngrok/vercel se necessário
+    const BACKEND_URL = 'http://localhost:5000'; // Altere para Railway/Vercel depois
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
-    // Ativa a câmera
-    navigator.mediaDevices.getUserMedia({ video: true })
+    // Tenta abrir câmera traseira, fallback para frontal
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } })
       .then(stream => video.srcObject = stream)
-      .catch(err => alert('Erro ao acessar a câmera: ' + err));
+      .catch(err => {
+        console.warn('Câmera traseira indisponível, tentando qualquer câmera...');
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => video.srcObject = stream)
+          .catch(err => alert('Erro ao acessar a câmera: ' + err));
+      });
 
     async function captureAndSend() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
