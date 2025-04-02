@@ -1,71 +1,224 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Detector de Desgaste de Moedas</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-    video, canvas, img { max-width: 100%; border: 1px solid #ccc; margin-top: 10px; }
-    button { margin-top: 10px; padding: 10px 20px; font-size: 16px; }
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      color: #333;
+    }
+
+    h1 {
+      color: #1a73e8;
+      margin-bottom: 30px;
+      font-size: 24px;
+    }
+
+    input[type="file"], select {
+      margin-top: 20px;
+      font-size: 16px;
+      padding: 8px;
+      max-width: 90%;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0f59c4;
+    }
+
+    .result {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin: 40px auto;
+      width: 90%;
+      max-width: 1200px;
+    }
+
+    .result h3 {
+      color: #444;
+      margin: 20px 0 10px;
+    }
+
+    #label, #score {
+      font-weight: bold;
+      margin: 10px 0;
+      font-size: 18px;
+    }
+
+    .images-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 40px;
+      margin-top: 20px;
+    }
+
+    .coin-image {
+      width: 360px;
+      height: 360px;
+      max-width: 90vw;
+      max-height: 90vw;
+      object-fit: contain;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .bar-image {
+      width: 90%;
+      height: auto;
+      object-fit: contain;
+      margin-top: 25px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .images-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      button, select, input[type="file"] {
+        font-size: 14px;
+        width: 100%;
+        padding: 10px;
+      }
+
+      .result {
+        padding: 20px;
+      }
+
+      .coin-image{
+        width: 100%;
+        height: auto;
+      }
+      .bar-image {
+        width: 100%;
+        height: auto;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>Detector de Desgaste de Moedas</h1>
 
-  <video id="video" autoplay playsinline width="300"></video><br>
-  <button onclick="captureAndSend()">Capturar e Enviar</button>
-  <canvas id="canvas" width="256" height="256" style="display:none;"></canvas>
+  <label for="coinType"><strong>Tipo de Moeda:</strong></label>
+  <select id="coinType">
+    <option value="1">1 centavo</option>
+    <option value="2">2 centavos</option>
+    <option value="5">5 centavos</option>
+    <option value="10">10 centavos</option>
+    <option value="20">20 centavos</option>
+    <option value="50" selected>50 centavos</option>
+  </select>
+  <br />
 
-  <h3>Resultado</h3>
-  <p id="label"></p>
-  <p id="score"></p>
+  <input type="file" accept="image/*" id="imageInput" />
+  <br />
+  <button onclick="uploadAndSend()">Enviar para Análise</button>
 
-  <h3>Imagem Original</h3>
-  <img id="original" alt="Imagem original" />
+  <div class="result" id="resultContainer" style="display: none;">
+    <h3>Resultado</h3>
+    <p id="label"></p>
+    <p id="score"></p>
 
-  <h3>Imagem Pré-processada</h3>
-  <img id="preprocessed" alt="Imagem pré-processada" />
+    <h3>Imagens</h3>
+    <div class="images-row">
+      <div>
+        <p><strong>Imagem Original</strong></p>
+        <img class="coin-image" id="original" />
+      </div>
+      <div>
+        <p><strong>Imagem Pré-processada</strong></p>
+        <img class="coin-image" id="preprocessed" />
+      </div>
+      <div>
+        <p><strong>Mapa de Calor</strong></p>
+        <img class="coin-image" id="heatmap" />
+      </div>
+      <div>
+        <p><strong>Mapa de Diferença</strong></p>
+        <img class="coin-image" id="diffmap" />
+      </div>
+    </div>
 
-  <h3>Nível de Desgaste</h3>
-  <img id="gradiente" alt="Barra de desgaste" />
+    <h3>Nível de Desgaste</h3>
+    <img class="bar-image" id="gradiente" />
+  </div>
 
   <script>
-    const BACKEND_URL = 'http://192.168.1.10:5000';
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    const BACKEND_URL = "http://192.168.1.10:5000/predict";
 
-    // Tenta abrir câmera traseira, fallback para frontal
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } })
-      .then(stream => video.srcObject = stream)
-      .catch(err => {
-        console.warn('Câmera traseira indisponível, tentando qualquer câmera...');
-        navigator.mediaDevices.getUserMedia({ video: true })
-          .then(stream => video.srcObject = stream)
-          .catch(err => alert('Erro ao acessar a câmera: ' + err));
-      });
-
-    async function captureAndSend() {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = canvas.toDataURL('image/png').split(',')[1];
-
-      const response = await fetch(`${BACKEND_URL}/predict`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageData })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        document.getElementById('label').innerText = 'Estado: ' + result.label;
-        document.getElementById('score').innerText = 'Score: ' + result.score.toFixed(3);
-        document.getElementById('gradiente').src = 'data:image/png;base64,' + result.gradiente_base64;
-        document.getElementById('original').src = 'data:image/png;base64,' + result.original_base64;
-        document.getElementById('preprocessed').src = 'data:image/png;base64,' + result.preprocessed_base64;
-      } else {
-        alert('Erro na requisição.');
+    async function uploadAndSend() {
+      const input = document.getElementById("imageInput");
+      const coinType = document.getElementById("coinType").value;
+      const file = input.files[0];
+      if (!file) {
+        alert("Selecione uma imagem!");
+        return;
       }
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result.split(',')[1];
+
+        try {
+          const response = await fetch(BACKEND_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: base64Image, coin_type: coinType }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Erro do servidor:", errorText);
+            alert("Erro ao enviar imagem");
+            return;
+          }
+
+          const result = await response.json();
+          document.getElementById("label").innerText = "Estado: " + result.label;
+          document.getElementById("score").innerText = "Score: " + result.score.toFixed(3);
+          document.getElementById("original").src = "data:image/png;base64," + result.original_base64;
+          document.getElementById("preprocessed").src = "data:image/png;base64," + result.preprocessed_base64;
+          document.getElementById("heatmap").src = "data:image/png;base64," + result.heatmap_base64;
+          document.getElementById("gradiente").src = "data:image/png;base64," + result.gradiente_base64;
+          document.getElementById("diffmap").src = "data:image/png;base64," + result.diffmap_base64;
+          document.getElementById("resultContainer").style.display = "block";
+        } catch (error) {
+          console.error("Erro ao processar imagem:", error);
+          alert("Erro ao processar imagem.");
+        }
+      };
+
+      reader.readAsDataURL(file);
     }
   </script>
 </body>
